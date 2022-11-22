@@ -1,11 +1,7 @@
 //! Traits for more easily dealing with the various types to represent 2d points/sizes
 use glam::{IVec2, UVec2, Vec2};
 
-use crate::{
-    directions::{DIR_4, DIR_8},
-    pivot::PivotedPoint,
-    Pivot,
-};
+use crate::{directions::Direction, pivot::PivotedPoint, Pivot};
 
 /// A trait for types representing an integer point on a 2d grid.
 pub trait GridPoint: Clone + Copy {
@@ -97,7 +93,7 @@ pub trait GridPoint: Clone + Copy {
         AdjIterator {
             i: 0,
             p: self.as_ivec2(),
-            arr: DIR_8,
+            arr: &Direction::DIR_8,
         }
     }
 
@@ -107,7 +103,7 @@ pub trait GridPoint: Clone + Copy {
         AdjIterator {
             i: 0,
             p: self.as_ivec2(),
-            arr: DIR_4,
+            arr: &Direction::DIR_4,
         }
     }
 }
@@ -115,7 +111,7 @@ pub trait GridPoint: Clone + Copy {
 pub struct AdjIterator<'a> {
     i: usize,
     p: IVec2,
-    arr: &'a [IVec2],
+    arr: &'a [Direction],
 }
 
 impl<'a> Iterator for AdjIterator<'a> {

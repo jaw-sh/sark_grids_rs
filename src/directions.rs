@@ -1,149 +1,141 @@
-//! Utilities for dealing with directions on a 2d grid.
-use glam::IVec2;
-
 use crate::point::GridPoint;
+use glam::{IVec2, IVec3};
+use std::ops::Add;
 
-pub const UP: IVec2 = IVec2::from_array([0, 1]);
-pub const DOWN: IVec2 = IVec2::from_array([0, -1]);
-pub const LEFT: IVec2 = IVec2::from_array([-1, 0]);
-pub const RIGHT: IVec2 = IVec2::from_array([1, 0]);
-pub const UP_LEFT: IVec2 = IVec2::from_array([-1, 1]);
-pub const UP_RIGHT: IVec2 = IVec2::from_array([1, 1]);
-pub const DOWN_LEFT: IVec2 = IVec2::from_array([-1, -1]);
-pub const DOWN_RIGHT: IVec2 = IVec2::from_array([1, -1]);
+// X X ASC DESC  UP RIGHT DOWN LEFT
+//0b0000 0000
 
-/// Array of four orthogonal grid directions.
-pub const DIR_4: &[IVec2] = &[UP, DOWN, LEFT, RIGHT];
-
-/// Array of eight adjacent grid directions.
-pub const DIR_8: &[IVec2] = &[
-    UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT,
-];
-
-/// Four orthogonal directions on a 2d grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Dir4 {
-    Up,
-    Down,
-    Left,
-    Right,
+pub struct Direction(u8);
+
+impl Direction {
+    /// Array of four orthogonal grid directions.
+    pub const DIR_4: &[Direction] = &[Self::UP, Self::DOWN, Self::LEFT, Self::RIGHT];
+
+    /// Array of eight adjacent grid directions.
+    pub const DIR_8: &[Direction] = &[
+        Self::UP,
+        Self::DOWN,
+        Self::LEFT,
+        Self::RIGHT,
+        Self::UP_LEFT,
+        Self::UP_RIGHT,
+        Self::DOWN_LEFT,
+        Self::DOWN_RIGHT,
+    ];
+
+    // Flat traversal
+    pub const NONE: Self = Self(0b0);
+    pub const UP: Self = Self(0b1000);
+    pub const UP_RIGHT: Self = Self(0b1100);
+    pub const RIGHT: Self = Self(0b0100);
+    pub const DOWN_RIGHT: Self = Self(0b0110);
+    pub const DOWN: Self = Self(0b0010);
+    pub const DOWN_LEFT: Self = Self(0b0011);
+    pub const LEFT: Self = Self(0b0001);
+    pub const UP_LEFT: Self = Self(0b1001);
+
+    // Descending Traversal
+    pub const DESCEND: Self = Self(0b10000);
+    pub const DESC_UP: Self = Self(0b11000);
+    pub const DESC_UP_RIGHT: Self = Self(0b11100);
+    pub const DESC_RIGHT: Self = Self(0b10100);
+    pub const DESC_DOWN_RIGHT: Self = Self(0b10110);
+    pub const DESC_DOWN: Self = Self(0b10010);
+    pub const DESC_DOWN_LEFT: Self = Self(0b10011);
+    pub const DESC_LEFT: Self = Self(0b10001);
+    pub const DESC_UP_LEFT: Self = Self(0b11001);
+
+    // Ascending Traversal
+    pub const ASCEND: Self = Self(0b100000);
+    pub const ASC_UP: Self = Self(0b101000);
+    pub const ASC_UP_RIGHT: Self = Self(0b101100);
+    pub const ASC_RIGHT: Self = Self(0b100100);
+    pub const ASC_DOWN_RIGHT: Self = Self(0b100110);
+    pub const ASC_DOWN: Self = Self(0b100010);
+    pub const ASC_DOWN_LEFT: Self = Self(0b100011);
+    pub const ASC_LEFT: Self = Self(0b100001);
+    pub const ASC_UP_LEFT: Self = Self(0b101001);
 }
 
-impl From<Dir4> for IVec2 {
-    fn from(d: Dir4) -> Self {
+impl From<[i32; 2]> for Direction {
+    fn from(a: [i32; 2]) -> Self {
+        match a {
+            [0, 0] => Self::NONE,
+            [0, 1] => Self::UP,
+            [1, 1] => Self::UP_RIGHT,
+            [1, 0] => Self::RIGHT,
+            [1, -1] => Self::DOWN_RIGHT,
+            [0, -1] => Self::DOWN,
+            [-1, -1] => Self::DOWN_LEFT,
+            [-1, 0] => Self::LEFT,
+            [-1, 1] => Self::UP_LEFT,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<Direction> for [i32; 2] {
+    fn from(d: Direction) -> Self {
         match d {
-            Dir4::Up => UP,
-            Dir4::Down => DOWN,
-            Dir4::Left => LEFT,
-            Dir4::Right => RIGHT,
+            Direction::NONE => [0, 0],
+            Direction::UP => [0, 1],
+            Direction::UP_RIGHT => [1, 1],
+            Direction::RIGHT => [1, 0],
+            Direction::DOWN_RIGHT => [1, -1],
+            Direction::DOWN => [0, -1],
+            Direction::DOWN_LEFT => [-1, -1],
+            Direction::LEFT => [-1, 0],
+            Direction::UP_LEFT => [-1, 1],
+            _ => unreachable!(),
         }
     }
 }
 
-impl Dir4 {
-    /// Retrieve the direction from the given point, or none if it's (0,0).
-    pub fn from_point(p: impl GridPoint) -> Option<Dir4> {
-        match p.as_ivec2().signum().to_array() {
-            [0, 1] => Some(Dir4::Up),
-            [0, -1] => Some(Dir4::Down),
-            [-1, 0] => Some(Dir4::Left),
-            [1, 0] => Some(Dir4::Right),
-            _ => None,
-        }
+impl From<Direction> for IVec2 {
+    fn from(d: Direction) -> Self {
+        let xy: [i32; 2] = d.into();
+        Self { x: xy[0], y: xy[1] }
     }
+}
 
-    /// Retrieve a direction from it's corresponding index.
-    pub fn from_index(i: usize) -> Option<Dir4> {
-        match i {
-            0 => Some(Dir4::Up),
-            1 => Some(Dir4::Down),
-            2 => Some(Dir4::Left),
-            3 => Some(Dir4::Right),
-            _ => None,
-        }
+impl From<IVec2> for Direction {
+    fn from(v: IVec2) -> Self {
+        Self::from(v.as_array())
     }
+}
 
-    /// Convert a direction to it's corresponding index.
-    pub fn to_index(&self) -> usize {
-        match self {
-            Dir4::Up => 0,
-            Dir4::Down => 1,
-            Dir4::Left => 2,
-            Dir4::Right => 3,
+impl Add<Direction> for IVec2 {
+    type Output = IVec2;
+
+    fn add(self, addend: Direction) -> Self::Output {
+        let xy: [i32; 2] = addend.into();
+        Self::Output {
+            x: xy[0] + self.x,
+            y: xy[1] + self.y,
         }
     }
 }
 
-/// 8 directions on a 2d grid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Dir8 {
-    Up,
-    Down,
-    Left,
-    Right,
-    UpLeft,
-    UpRight,
-    DownLeft,
-    DownRight,
-}
+impl Add<IVec2> for Direction {
+    type Output = IVec2;
 
-impl Dir8 {
-    /// Retrieve the direction from the given point, or none if it's (0,0).
-    pub fn from_point(p: impl GridPoint) -> Option<Dir8> {
-        match p.as_ivec2().signum().to_array() {
-            [0, 1] => Some(Dir8::Up),
-            [0, -1] => Some(Dir8::Down),
-            [-1, 0] => Some(Dir8::Left),
-            [1, 0] => Some(Dir8::Right),
-            [-1, 1] => Some(Dir8::UpLeft),
-            [1, 1] => Some(Dir8::UpRight),
-            [-1, -1] => Some(Dir8::DownLeft),
-            [1, -1] => Some(Dir8::DownRight),
-            _ => None,
-        }
-    }
-
-    /// Retrieve a direction from an index.
-    pub fn from_index(i: usize) -> Option<Dir8> {
-        match i {
-            0 => Some(Dir8::Up),
-            1 => Some(Dir8::Down),
-            2 => Some(Dir8::Left),
-            3 => Some(Dir8::Right),
-            4 => Some(Dir8::UpLeft),
-            5 => Some(Dir8::UpRight),
-            6 => Some(Dir8::DownLeft),
-            7 => Some(Dir8::DownRight),
-            _ => None,
-        }
-    }
-
-    /// Convert a direction to it's corresponding index.
-    pub fn to_index(&self) -> usize {
-        match self {
-            Dir8::Up => 0,
-            Dir8::Down => 1,
-            Dir8::Left => 2,
-            Dir8::Right => 3,
-            Dir8::UpLeft => 4,
-            Dir8::UpRight => 5,
-            Dir8::DownLeft => 6,
-            Dir8::DownRight => 7,
+    fn add(self, addend: Self::Output) -> Self::Output {
+        let xy: [i32; 2] = self.into();
+        Self::Output {
+            x: xy[0] + addend.x,
+            y: xy[1] + addend.y,
         }
     }
 }
 
-impl From<Dir8> for IVec2 {
-    fn from(d: Dir8) -> Self {
-        match d {
-            Dir8::Up => UP,
-            Dir8::Down => DOWN,
-            Dir8::Left => LEFT,
-            Dir8::Right => RIGHT,
-            Dir8::UpLeft => UP_LEFT,
-            Dir8::UpRight => UP_RIGHT,
-            Dir8::DownLeft => DOWN_LEFT,
-            Dir8::DownRight => DOWN_RIGHT,
+impl From<IVec3> for Direction {
+    fn from(v: IVec3) -> Self {
+        match v.z {
+            0 => Self::from([v.x, v.y]),
+            1 => Self(Self::from([v.x, v.y]).0 | Self::ASCEND.0),
+            -1 => Self(Self::from([v.x, v.y]).0 | Self::DESCEND.0),
+            _ => unreachable!(),
         }
     }
 }
